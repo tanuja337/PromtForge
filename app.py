@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import difflib
+import html
 import io
 import json
 import os
@@ -98,26 +99,436 @@ SCENARIOS = [
 
 st.set_page_config(page_title="PromptForge | Prompt Intelligence", page_icon="✦", layout="wide", initial_sidebar_state="expanded")
 
+st.markdown("""
+<style>
+
+/* Main dashboard background */
+.stApp {
+    background:
+        radial-gradient(circle at 15% 20%, rgba(0,210,255,0.12), transparent 30%),
+        radial-gradient(circle at 85% 75%, rgba(130,80,255,0.14), transparent 32%),
+        linear-gradient(135deg, #080D1B, #10182D, #080D1B);
+    color: #F1F5F9;
+}
+
+/* Animated AI particle effect */
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+    background-image:
+        radial-gradient(circle, #38BDF8 1.5px, transparent 2px),
+        radial-gradient(circle, #A78BFA 1px, transparent 2px),
+        radial-gradient(circle, #22D3EE 1px, transparent 2px);
+    background-size: 95px 95px, 135px 135px, 175px 175px;
+    background-position: 0 0, 45px 65px, 90px 30px;
+    animation: aiParticles 35s linear infinite;
+}
+
+@keyframes aiParticles {
+    from {
+        background-position: 0 0, 45px 65px, 90px 30px;
+    }
+    to {
+        background-position: 300px 500px, -250px 350px, 200px -300px;
+    }
+}
+
+/* Professional headings */
+h1, h2, h3 {
+    color: #E0F2FE !important;
+    font-weight: 750 !important;
+}
+
+/* Cards */
+div[data-testid="stMetric"],
+div[data-testid="stExpander"],
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: rgba(20, 35, 60, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 15px;
+    padding: 12px;
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(100deg, #2563EB, #7C3AED);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 20px;
+    font-weight: 650;
+    transition: 0.25s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(56,189,248,0.3);
+}
+
+/* Inputs */
+.stTextInput input, .stTextArea textarea, .stSelectbox div {
+    border-radius: 9px;
+}
+
+/* Respect reduced-motion settings */
+@media (prefers-reduced-motion: reduce) {
+    .stApp::before {
+        animation: none;
+    }
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
-html, body, [class*="css"] {font-family:'DM Sans',sans-serif;}
-.stApp {background: radial-gradient(circle at 85% 0%, rgba(103,80,220,.16), transparent 28%), #0b1020; color:#edf0ff;}
-[data-testid="stSidebar"] {background:linear-gradient(180deg,#11182b,#0d1425); border-right:1px solid rgba(151,139,255,.16);}
-h1,h2,h3 {font-family:'Space Grotesk',sans-serif; letter-spacing:-.035em;}
-.block-container {padding-top:2rem; padding-bottom:3rem; max-width:1500px;}
-[data-testid="stMetric"] {background:linear-gradient(145deg,rgba(31,42,69,.94),rgba(19,28,49,.94)); padding:18px 20px; border:1px solid rgba(151,139,255,.18); border-radius:17px;}
-[data-testid="stMetricLabel"] {color:#aab5d1;}
-[data-testid="stMetricValue"] {color:#f4f5ff; font-family:'Space Grotesk',sans-serif;}
-div.stButton > button, div.stDownloadButton > button {border-radius:11px; border:1px solid rgba(157,143,255,.35); background:linear-gradient(110deg,#6754d9,#8b5cf6); color:white; font-weight:700; min-height:2.7rem;}
-div.stButton > button:hover, div.stDownloadButton > button:hover {border-color:#c4b5fd; color:white; filter:brightness(1.12);}
-div[data-testid="stTextArea"] textarea, div[data-testid="stTextInput"] input {background:#111a2e; color:#f3f4ff; border:1px solid #34415f; border-radius:12px;}
-div[data-testid="stSelectbox"] > div > div {background:#111a2e;}
-.pf-card {background:linear-gradient(145deg,rgba(29,40,67,.96),rgba(17,26,46,.96)); border:1px solid rgba(151,139,255,.18); padding:19px; border-radius:17px; min-height:112px;}
-.pf-muted {color:#9eabc8; font-size:.88rem;}
-.pf-kicker {color:#a99aff; font-weight:700; letter-spacing:.12em; font-size:.72rem; text-transform:uppercase;}
-.pf-title {font-family:'Space Grotesk',sans-serif; font-size:2rem; font-weight:700; color:#f5f4ff;}
-.pf-pill {display:inline-block;padding:5px 10px;border-radius:30px;background:rgba(139,92,246,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.25);font-size:.75rem;}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg: #080d19;
+    --surface: #111a2b;
+    --surface2: #17233a;
+    --purple: #9675ff;
+    --cyan: #51d9ed;
+    --text: #f4f5ff;
+    --muted: #9baac5;
+    --border: rgba(159,135,255,.20);
+}
+
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.stApp {
+    background: linear-gradient(
+        -45deg,
+        #080b18,
+        #171038,
+        #101e3d,
+        #251044,
+        #09182c,
+        #080b18
+    );
+    background-size: 400% 400%;
+    animation: pfGradientMove 18s ease infinite;
+    color: #f5f5ff;
+}
+
+@keyframes pfGradientMove {
+    0% {
+        background-position: 0% 50%;
+    }
+    25% {
+        background-position: 50% 100%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    75% {
+        background-position: 50% 0%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .stApp {
+        animation: none !important;
+        background-position: 50% 50%;
+    }
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+.block-container {
+    max-width: 1500px;
+    padding-top: 2.5rem;
+    padding-bottom: 4rem;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -.035em;
+    color: #f5f5ff;
+}
+
+p, label, .stCaption {
+    color: #b4c0d8;
+}
+
+/* SIDEBAR */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,#121c31,#090f1e);
+    border-right: 1px solid var(--border);
+}
+
+[data-testid="stSidebar"] h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+    color: #aab8d2;
+}
+
+[data-testid="stSidebar"] hr {
+    border-color: var(--border);
+}
+
+/* METRIC CARDS */
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg,#192641,#111a2c);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    transition: all .25s ease;
+}
+
+[data-testid="stMetric"]:hover {
+    transform: translateY(-4px);
+    border-color: rgba(160,130,255,.65);
+    box-shadow: 0 14px 35px rgba(90,70,180,.16);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #aebbd6 !important;
+    font-size: .88rem;
+    font-weight: 600;
+}
+
+[data-testid="stMetricValue"] {
+    color: white !important;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+/* BUTTONS */
+div.stButton > button,
+div.stDownloadButton > button {
+    border-radius: 12px;
+    min-height: 2.9rem;
+    border: 1px solid rgba(164,143,255,.35);
+    background: linear-gradient(110deg,#7051e8,#9870ff);
+    color: white;
+    font-weight: 700;
+    transition: all .2s ease;
+}
+
+div.stButton > button:hover,
+div.stDownloadButton > button:hover {
+    border-color: #c8baff;
+    color: white;
+    box-shadow: 0 7px 24px rgba(125,91,255,.28);
+    transform: translateY(-2px);
+}
+
+/* INPUTS */
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stTextInput"] input {
+    background: #111b30;
+    color: white;
+    border: 1px solid #344565;
+    border-radius: 12px;
+}
+
+div[data-testid="stSelectbox"] > div > div {
+    background: #111b30;
+    border-radius: 10px;
+}
+
+div[data-testid="stTextArea"] textarea:focus,
+div[data-testid="stTextInput"] input:focus {
+    border-color: #9675ff;
+    box-shadow: 0 0 0 1px #9675ff;
+}
+
+/* CONTAINERS */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: var(--border) !important;
+    border-radius: 18px !important;
+}
+
+/* HERO SECTION */
+.pf-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 24px 30px;
+    border: 1px solid rgba(170,145,255,.32);
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 90% 10%,rgba(91,204,255,.22),transparent 30%),
+        radial-gradient(circle at 5% 100%,rgba(142,92,255,.25),transparent 40%),
+        linear-gradient(120deg,#202b50,#34265e 55%,#172c49);
+    box-shadow: 0 18px 50px rgba(0,0,0,.25);
+    margin-bottom: 18px;
+}
+
+.pf-kicker {
+    color: #c0adff;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+}
+
+.pf-hero-title {
+    font-family: 'Space Grotesk',sans-serif;
+    font-size: clamp(2rem,4vw,3rem);
+    font-weight: 700;
+    line-height: 1.15;
+    color: white;
+    margin: 14px 0;
+}
+
+.pf-hero-sub {
+    color: #d0d9f0;
+    font-size: .98rem;
+    max-width: 720px;
+    line-height: 1.8;
+}
+
+/* BADGES */
+.pf-pill {
+    display: inline-block;
+    padding: 7px 13px;
+    border-radius: 30px;
+    background: rgba(158,126,255,.17);
+    color: #ded3ff;
+    border: 1px solid rgba(180,157,255,.30);
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+/* SECTION HEADINGS */
+.pf-section {
+    font-family: 'Space Grotesk',sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #f4f5ff;
+    margin-top: 25px;
+    margin-bottom: 7px;
+}
+
+.pf-subtitle {
+    color: #9baac5;
+    font-size: .87rem;
+    margin-bottom: 17px;
+    line-height: 1.6;
+}
+
+/* INFORMATION CARDS */
+.pf-panel {
+    background: linear-gradient(145deg,#182541,#10192c);
+    border: 1px solid rgba(154,137,255,.22);
+    border-radius: 19px;
+    padding: 23px;
+    min-height: 135px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.13);
+    transition: all .25s ease;
+}
+
+.pf-panel:hover {
+    border-color: rgba(157,130,255,.55);
+    transform: translateY(-3px);
+}
+
+.pf-panel-title {
+    font-weight: 700;
+    color: #f0efff;
+    font-size: 1.02rem;
+}
+
+.pf-panel-desc {
+    color: #a4b2ce;
+    font-size: .85rem;
+    line-height: 1.7;
+    margin-top: 9px;
+}
+
+/* EMPTY DASHBOARD */
+.pf-empty {
+    background:
+        radial-gradient(circle at 100% 0%,rgba(135,95,255,.16),transparent 40%),
+        linear-gradient(120deg,#17233c,#211c40);
+    border: 1px solid rgba(164,143,255,.28);
+    border-radius: 22px;
+    padding: 30px;
+}
+
+/* TABLES */
+div[data-testid="stDataFrame"] {
+    border: 1px solid rgba(154,137,255,.24);
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+/* CHARTS */
+div[data-testid="stPlotlyChart"] {
+    background: linear-gradient(145deg,rgba(22,33,55,.55),rgba(14,23,40,.35));
+    border: 1px solid rgba(154,137,255,.13);
+    border-radius: 17px;
+    padding: 8px;
+}
+
+/* PROGRESS */
+div[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg,#7958ed,#56d7e9);
+    border-radius: 20px;
+}
+
+/* ALERTS */
+div[data-testid="stAlert"] {
+    border-radius: 13px;
+}
+
+/* DIVIDERS */
+hr {
+    border-color: rgba(154,137,255,.18);
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0b1120;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #51427f;
+    border-radius: 10px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .pf-hero {
+        padding: 23px;
+    }
+
+    .pf-hero-title {
+        font-size: 1.9rem;
+    }
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -179,8 +590,10 @@ USER PROMPT:
 
 def parse_judge_json(raw: str) -> dict[str, Any]:
     cleaned = raw.strip()
+
     if cleaned.startswith("```"):
         cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
     try:
         obj = json.loads(cleaned)
     except json.JSONDecodeError:
@@ -188,34 +601,74 @@ def parse_judge_json(raw: str) -> dict[str, Any]:
         if start < 0 or end <= start:
             raise ValueError("The AI response was not valid JSON.")
         obj = json.loads(cleaned[start:end + 1])
+
     if not isinstance(obj, dict):
-        raise ValueError("The AI response had an unexpected structure.")
-    scores = obj.get("scores")
-    justifications = obj.get("justifications")
+        raise ValueError("The AI response must be a JSON object.")
+
+    required_keys = [
+        "scores", "justifications", "strengths",
+        "weaknesses", "recommendations", "scenario_fit",
+        "optimized_prompt", "changes"
+    ]
+
+    missing = [key for key in required_keys if key not in obj]
+    if missing:
+        raise ValueError(f"AI response is missing: {', '.join(missing)}")
+
+    scores = obj["scores"]
+    justifications = obj["justifications"]
+
     if not isinstance(scores, dict) or not isinstance(justifications, dict):
-        raise ValueError("The AI response is missing scores or justifications.")
+        raise ValueError("Scores and justifications must be objects.")
+
     normalized_scores = {}
     normalized_justifications = {}
+
     for dim in DIMENSIONS:
-        try:
-            value = float(scores[dim])
-        except (KeyError, TypeError, ValueError):
-            raise ValueError(f"The AI response is missing a valid {dim} score.")
-        normalized_scores[dim] = max(0.0, min(10.0, value))
-        normalized_justifications[dim] = str(justifications.get(dim, "No justification returned."))
+        value = scores.get(dim)
+
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Invalid numeric score for {dim}.")
+
+        if not 0 <= value <= 10:
+            raise ValueError(f"{dim} score must be between 0 and 10.")
+
+        normalized_scores[dim] = float(value)
+
+        explanation = justifications.get(dim)
+        if not isinstance(explanation, str) or not explanation.strip():
+            raise ValueError(f"Missing explanation for {dim}.")
+
+        normalized_justifications[dim] = explanation.strip()
+
     def clean_list(key: str) -> list[str]:
-        value = obj.get(key, [])
-        if not isinstance(value, list):
-            return []
-        return [str(x).strip() for x in value if str(x).strip()][:3]
+        value = obj[key]
+
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"{key} must contain at least one item.")
+
+        if any(not isinstance(item, str) or not item.strip() for item in value):
+            raise ValueError(f"{key} contains an invalid item.")
+
+        return [item.strip() for item in value[:3]]
+
+    scenario_fit = obj["scenario_fit"]
+    optimized_prompt = obj["optimized_prompt"]
+
+    if not isinstance(scenario_fit, str) or not scenario_fit.strip():
+        raise ValueError("Scenario fit feedback is missing.")
+
+    if not isinstance(optimized_prompt, str) or not optimized_prompt.strip():
+        raise ValueError("Optimized prompt is missing.")
+
     return {
         "scores": normalized_scores,
         "justifications": normalized_justifications,
         "strengths": clean_list("strengths"),
         "weaknesses": clean_list("weaknesses"),
         "recommendations": clean_list("recommendations"),
-        "scenario_fit": str(obj.get("scenario_fit", "No scenario-fit comment returned.")),
-        "optimized_prompt": str(obj.get("optimized_prompt", "")).strip(),
+        "scenario_fit": scenario_fit.strip(),
+        "optimized_prompt": optimized_prompt.strip(),
         "changes": clean_list("changes"),
     }
 
@@ -276,35 +729,468 @@ def render_metric_row(history: list[dict[str, Any]]) -> None:
     c4.metric("Current level", skill_level(history[-1]["overall"]) if history else "Not rated")
 
 def render_dashboard(history: list[dict[str, Any]]) -> None:
-    st.markdown('<div class="pf-kicker">PROMPT INTELLIGENCE / OVERVIEW</div>', unsafe_allow_html=True)
-    st.markdown('<div class="pf-title">Your prompt command center</div>', unsafe_allow_html=True)
-    st.caption("A live view of your evaluated attempts. Metrics appear after real Groq evaluations.")
-    render_metric_row(history)
+    # Safe, chronological history
+    history = sorted(history, key=lambda x: x.get("timestamp", ""))
+
+    total = len(history)
+    scores = [float(x.get("overall", 0)) for x in history]
+    avg = round(sum(scores) / total, 1) if total else 0
+    best = max(scores, default=0)
+    latest = history[-1] if history else None
+    previous = history[-2] if total > 1 else None
+
+    improvement = (
+        round(scores[-1] - scores[-2], 1)
+        if total > 1 else None
+    )
+
+    # Hero
+    st.markdown("""
+    <div class="pf-hero">
+        <div class="pf-kicker">✦ PROMPTFORGE / AI INTELLIGENCE PLATFORM</div>
+        <div class="pf-hero-title">Your AI Command Center</div>
+        <div class="pf-hero-sub">
+            Measure prompt quality. Discover hidden weaknesses.
+            Track your growth and turn better instructions into better AI results.
+        </div>
+        <br>
+        <span class="pf-pill">✦ LLM-as-a-Judge</span>
+        &nbsp;
+        <span class="pf-pill">◈ Six-dimension analysis</span>
+        &nbsp;
+        <span class="pf-pill">⚡ Powered by Groq</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # KPI row
+    st.markdown('<div class="pf-section">Performance overview</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pf-subtitle">Your real evaluation statistics at a glance.</div>',
+        unsafe_allow_html=True
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "◈ Total evaluations",
+        total,
+        help="Number of successfully completed prompt evaluations."
+    )
+
+    c2.metric(
+        "◎ Average quality",
+        f"{avg}/100",
+        help="Average overall score across your evaluations."
+    )
+
+    c3.metric(
+        "🏆 Personal best",
+        f"{best}/100",
+        help="Your highest recorded prompt score."
+    )
+
+    c4.metric(
+        "↗ Latest improvement",
+        f"{improvement:+.1f}" if improvement is not None else "—",
+        help="Difference between your latest two evaluation scores."
+    )
+
+    # First-time dashboard
     if not history:
-        st.info("Your dashboard is ready. Go to **Practice & Evaluate** to submit your first prompt and generate real evaluation data.")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="pf-empty">
+            <div class="pf-kicker">YOUR JOURNEY STARTS HERE</div>
+            <h2 style="color:white;margin-top:10px;">
+                Ready to engineer better prompts?
+            </h2>
+            <p style="color:#bac7e4;line-height:1.8;">
+                Your analytics centre is ready. Complete your first AI
+                evaluation to unlock performance charts, skill analysis,
+                personalized insights and your improvement journey.
+            </p>
+            <span class="pf-pill">01 · Evaluate</span>
+            &nbsp;
+            <span class="pf-pill">02 · Discover</span>
+            &nbsp;
+            <span class="pf-pill">03 · Improve</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### Explore your workspace")
+
+        a, b, c = st.columns(3)
+
+        with a:
+            st.markdown("""
+            <div class="pf-panel">
+                <div class="pf-panel-title">✦ Prompt Evaluation</div>
+                <div class="pf-panel-desc">
+                    Analyze prompts across six engineering dimensions
+                    and receive evidence-based feedback.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("Start evaluating →", key="empty_eval",
+                         use_container_width=True):
+                st.session_state.page = "Practice & Evaluate"
+                st.rerun()
+
+        with b:
+            st.markdown("""
+            <div class="pf-panel">
+                <div class="pf-panel-title">⚡ Prompt Optimizer</div>
+                <div class="pf-panel-desc">
+                    Transform unclear instructions into structured,
+                    specific and effective prompts.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("Explore optimizer →", key="empty_opt",
+                         use_container_width=True):
+                st.session_state.page = "Prompt Optimizer"
+                st.rerun()
+
+        with c:
+            st.markdown("""
+            <div class="pf-panel">
+                <div class="pf-panel-title">◈ Progress Analytics</div>
+                <div class="pf-panel-desc">
+                    Monitor your scores, identify weak dimensions
+                    and follow your learning journey.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("View progress →", key="empty_progress",
+                         use_container_width=True):
+                st.session_state.page = "Progress Tracker"
+                st.rerun()
+
         return
-    latest = history[-1]
-    left,right = st.columns([1,1])
+
+    # Latest evaluation and skill
+    st.markdown("<br>", unsafe_allow_html=True)
+    left, right = st.columns([1.35, 1])
+
     with left:
-        st.markdown("#### Latest prompt quality")
-        st.plotly_chart(make_gauge(latest["overall"]), use_container_width=True, config={"displayModeBar":False})
-        st.markdown(f'<span class="pf-pill">{skill_level(latest["overall"])} level</span>', unsafe_allow_html=True)
+        st.markdown('<div class="pf-section">Latest performance</div>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="pf-subtitle">Your most recent prompt evaluation.</div>',
+            unsafe_allow_html=True
+        )
+
+        st.plotly_chart(
+            make_gauge(float(latest.get("overall", 0))),
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key="dashboard_latest_gauge"
+        )
+
+        level = skill_level(float(latest.get("overall", 0)))
+        st.markdown(
+            f'<span class="pf-pill">✦ {level} level</span>',
+            unsafe_allow_html=True
+        )
+
+        st.caption(
+            f"Latest evaluation: {latest.get('timestamp', 'Date unavailable')}"
+        )
+
     with right:
-        st.markdown("#### Six-dimension profile")
-        st.plotly_chart(make_radar(latest["scores"]), use_container_width=True, config={"displayModeBar":False})
-    st.markdown("#### Component performance")
-    frame = pd.DataFrame({"Dimension": DIMENSIONS, "Score": [latest["scores"][d] for d in DIMENSIONS]})
-    fig = px.bar(frame, x="Score", y="Dimension", orientation="h", range_x=[0,10], text="Score")
-    fig.update_traces(marker_color=["#ef6464" if x < 5 else "#e9ad4e" if x <= 7 else "#39c995" for x in frame["Score"]], textposition="outside")
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e5e7eb", height=300, margin=dict(l=10,r=30,t=10,b=10), xaxis=dict(gridcolor="#303b57"), yaxis=dict(gridcolor="rgba(0,0,0,0)"))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
-    if len(history) > 1:
-        st.markdown("#### Your improvement journey")
-        trend = pd.DataFrame([{"Attempt":i+1,"Score":x["overall"],"Date":x["timestamp"][:10]} for i,x in enumerate(history)])
-        fig2 = px.line(trend, x="Attempt", y="Score", markers=True, hover_data=["Date"])
-        fig2.update_traces(line_color="#a78bfa", line_width=3, marker_size=9)
-        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e5e7eb", height=270, yaxis=dict(range=[0,100],gridcolor="#303b57"), xaxis=dict(gridcolor="#303b57"))
-        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar":False})
+        st.markdown('<div class="pf-section">Your skill profile</div>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="pf-subtitle">Performance across six dimensions.</div>',
+            unsafe_allow_html=True
+        )
+
+        st.plotly_chart(
+            make_radar(latest.get("scores", {})),
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key="dashboard_latest_radar"
+        )
+
+    # Improvement journey
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="pf-section">Your improvement journey</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pf-subtitle">Track how your prompt quality changes over time.</div>',
+        unsafe_allow_html=True
+    )
+
+    trend = pd.DataFrame([
+        {
+            "Attempt": i + 1,
+            "Score": float(item.get("overall", 0)),
+            "Date": item.get("timestamp", "")[:10],
+            "Scenario": item.get("scenario_title", "General")
+        }
+        for i, item in enumerate(history)
+    ])
+
+    fig = px.area(
+        trend,
+        x="Attempt",
+        y="Score",
+        markers=True,
+        hover_data=["Date", "Scenario"],
+        range_y=[0, 100]
+    )
+
+    fig.update_traces(
+        line=dict(color="#a78bfa", width=3),
+        fillcolor="rgba(139,92,246,.15)",
+        marker=dict(size=8, color="#c4b5fd")
+    )
+
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#e5e7eb",
+        height=320,
+        margin=dict(l=15, r=20, t=20, b=15),
+        xaxis=dict(
+            title="Evaluation attempt",
+            gridcolor="rgba(130,145,180,.12)"
+        ),
+        yaxis=dict(
+            title="Prompt quality score",
+            range=[0, 100],
+            gridcolor="rgba(130,145,180,.18)"
+        ),
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"displayModeBar": False},
+        key="dashboard_trend"
+    )
+
+    # Dimension analytics
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="pf-section">Prompt intelligence analytics</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pf-subtitle">Understand which parts of your prompt engineering need attention.</div>',
+        unsafe_allow_html=True
+    )
+
+    dimension_rows = []
+
+    for dim in DIMENSIONS:
+        values = [
+            float(item.get("scores", {}).get(dim, 0))
+            for item in history
+        ]
+        dimension_rows.append({
+            "Dimension": dim,
+            "Average": round(sum(values) / len(values), 2) if values else 0
+        })
+
+    dimension_df = pd.DataFrame(dimension_rows)
+
+    chart_left, chart_right = st.columns([1.15, 1])
+
+    with chart_left:
+        st.markdown("#### Average dimension scores")
+
+        bar = px.bar(
+            dimension_df.sort_values("Average"),
+            x="Average",
+            y="Dimension",
+            orientation="h",
+            range_x=[0, 10],
+            text="Average"
+        )
+
+        bar.update_traces(
+            marker_color="#9174ed",
+            texttemplate="%{text:.1f}/10",
+            textposition="outside"
+        )
+
+        bar.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#e5e7eb",
+            height=340,
+            margin=dict(l=5, r=45, t=15, b=15),
+            xaxis=dict(gridcolor="rgba(130,145,180,.15)"),
+            yaxis=dict(gridcolor="rgba(0,0,0,0)")
+        )
+
+        st.plotly_chart(
+            bar,
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key="dashboard_dimension_bar"
+        )
+
+    with chart_right:
+        st.markdown("#### Score distribution")
+
+        bands = {
+            "Needs work": sum(1 for x in scores if x < 50),
+            "Developing": sum(1 for x in scores if 50 <= x < 75),
+            "Strong": sum(1 for x in scores if 75 <= x < 90),
+            "Excellent": sum(1 for x in scores if x >= 90)
+        }
+
+        distribution = pd.DataFrame([
+            {"Level": k, "Evaluations": v}
+            for k, v in bands.items()
+        ])
+
+        distribution = distribution[distribution["Evaluations"] > 0]
+
+        donut = px.pie(
+            distribution,
+            names="Level",
+            values="Evaluations",
+            hole=.68
+        )
+
+        donut.update_traces(
+            textposition="inside",
+            textinfo="percent",
+            marker=dict(
+                line=dict(color="#111a30", width=3)
+            )
+        )
+
+        donut.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#e5e7eb",
+            height=340,
+            margin=dict(l=5, r=5, t=15, b=15),
+            legend=dict(
+                orientation="h",
+                y=-.08,
+                x=.5,
+                xanchor="center"
+            )
+        )
+
+        st.plotly_chart(
+            donut,
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key="dashboard_distribution"
+        )
+
+    # AI coaching insights derived from real evaluation feedback
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="pf-section">✦ Performance intelligence</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pf-subtitle">Insights calculated from your saved evaluation results.</div>',
+        unsafe_allow_html=True
+    )
+
+    weakest = dimension_df.sort_values("Average").iloc[0]
+    strongest = dimension_df.sort_values("Average", ascending=False).iloc[0]
+
+    insight1, insight2, insight3 = st.columns(3)
+
+    with insight1:
+        st.markdown(f"""
+        <div class="pf-panel">
+            <div class="pf-kicker">FOCUS AREA</div>
+            <div class="pf-panel-title">{weakest['Dimension']}</div>
+            <div class="pf-panel-desc">
+                Your lowest average dimension is
+                {weakest['Average']:.1f}/10.
+                Give this area extra attention in your next prompt.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with insight2:
+        st.markdown(f"""
+        <div class="pf-panel">
+            <div class="pf-kicker">YOUR STRENGTH</div>
+            <div class="pf-panel-title">{strongest['Dimension']}</div>
+            <div class="pf-panel-desc">
+                Your strongest average dimension is
+                {strongest['Average']:.1f}/10.
+                Continue using the techniques that work well here.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with insight3:
+        change_text = (
+            f"{improvement:+.1f} points"
+            if improvement is not None else "More evaluations needed"
+        )
+        st.markdown(f"""
+        <div class="pf-panel">
+            <div class="pf-kicker">RECENT MOMENTUM</div>
+            <div class="pf-panel-title">{change_text}</div>
+            <div class="pf-panel-desc">
+                Change between your two most recent evaluation scores.
+                This is a comparison, not a prediction.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Recent activity
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="pf-section">Recent evaluation activity</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pf-subtitle">Your latest saved prompt evaluations.</div>',
+        unsafe_allow_html=True
+    )
+
+    recent = history[-5:][::-1]
+
+    recent_df = pd.DataFrame([
+        {
+            "Date": item.get("timestamp", "")[:16].replace("T", " "),
+            "Scenario": item.get("scenario_title", "General evaluation"),
+            "Score": f"{float(item.get('overall', 0)):.1f}/100",
+            "Level": skill_level(float(item.get("overall", 0)))
+        }
+        for item in recent
+    ])
+
+    st.dataframe(
+        recent_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # Quick actions
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="pf-section">Continue your journey</div>',
+                unsafe_allow_html=True)
+
+    q1, q2, q3 = st.columns(3)
+
+    with q1:
+        if st.button("✦ Evaluate a new prompt", use_container_width=True):
+            st.session_state.page = "Practice & Evaluate"
+            st.rerun()
+
+    with q2:
+        if st.button("⚡ Improve my prompt", use_container_width=True):
+            st.session_state.page = "Prompt Optimizer"
+            st.rerun()
+
+    with q3:
+        if st.button("◈ Full progress report", use_container_width=True):
+            st.session_state.page = "Progress Tracker"
+            st.rerun()
 
 def render_feedback(result: dict[str, Any], score: float) -> None:
     st.markdown("### Evaluation report")
@@ -346,12 +1232,14 @@ def render_optimizer(original: str, optimized: str, changes: list[str]) -> None:
     diff = difflib.ndiff(original.split(), optimized.split())
     html_parts = []
     for token in diff:
-        if token.startswith("+ "):
-            html_parts.append(f"<span style='background:#14532d;color:#bbf7d0;padding:2px 4px;border-radius:4px'>{token[2:]}</span>")
-        elif token.startswith("- "):
-            html_parts.append(f"<span style='background:#7f1d1d;color:#fecaca;text-decoration:line-through;padding:2px 4px;border-radius:4px'>{token[2:]}</span>")
-        elif token.startswith("  "):
-            html_parts.append(token[2:])
+      safe_token = html.escape(token[2:])
+
+    if token.startswith("+ "):
+        html_parts.append(f"<span class='added'>{safe_token}</span>")
+    elif token.startswith("- "):
+        html_parts.append(f"<span class='removed'>{safe_token}</span>")
+    else:
+        html_parts.append(safe_token)
     st.markdown("**Change highlighting**")
     st.markdown("<div style='background:#111a2e;border:1px solid #34415f;border-radius:12px;padding:15px;line-height:2'>" + " ".join(html_parts) + "</div>", unsafe_allow_html=True)
     st.markdown("**What changed and why**")
@@ -378,18 +1266,70 @@ def render_progress(history: list[dict[str, Any]]) -> None:
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
     st.markdown("#### Dimension trends")
     rows = []
-    for item in history:
-        for dim, val in item["scores"].items():
-            rows.append({"Attempt":item["timestamp"][:10], "Dimension":dim, "Score":val})
+    for attempt_number, item in enumerate(history, start=1):
+      for dim in DIMENSIONS:
+        value = item.get("scores", {}).get(dim)
+        if value is not None:
+            rows.append({
+                "Attempt": attempt_number,
+                "Dimension": dim,
+                "Score": float(value)
+            })
+
     trend_df = pd.DataFrame(rows)
-    fig2 = px.line(trend_df, x="Attempt", y="Score", color="Dimension", markers=True)
-    fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e5e7eb", height=340, yaxis=dict(range=[0,10],gridcolor="#303b57"), xaxis=dict(gridcolor="#303b57"))
+
+    fig2 = px.line(
+        trend_df,
+        x="Attempt",
+        y="Score",
+        color="Dimension",
+        markers=True,
+        category_orders={"Dimension": DIMENSIONS}
+    )
+
+    fig2.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#e5e7eb",
+        height=340,
+        yaxis=dict(range=[0,10], gridcolor="#303b57"),
+        xaxis=dict(gridcolor="#303b57")
+    )
+
     st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar":False})
-    table = pd.DataFrame([{"Date":x["timestamp"],"Scenario":x["scenario_title"],"Score":x["overall"],"Skill":skill_level(x["overall"])} for x in history])
+
+    table = pd.DataFrame([
+        {
+            "Date": x["timestamp"],
+            "Scenario": x["scenario_title"],
+            "Score": x["overall"],
+            "Skill": skill_level(x["overall"])
+        }
+        for x in history
+    ])
+
     st.markdown("#### Evaluation history")
     st.dataframe(table, use_container_width=True, hide_index=True)
-    csv_df = pd.DataFrame([{"timestamp":x["timestamp"],"scenario":x["scenario_title"],"prompt":x["prompt"],"overall_score":x["overall"],**{f"{k.lower()}_score":v for k,v in x["scores"].items()}} for x in history])
-    st.download_button("Download history as CSV", csv_df.to_csv(index=False).encode("utf-8"), "promptforge_history.csv", "text/csv", use_container_width=True)
+
+    csv_df = pd.DataFrame([
+        {
+            "timestamp": x["timestamp"],
+            "scenario": x["scenario_title"],
+            "prompt": x["prompt"],
+            "overall_score": x["overall"],
+            **{f"{k.lower()}_score": v for k, v in x["scores"].items()}
+        }
+        for x in history
+    ])
+
+    st.download_button(
+        "Download history as CSV",
+        csv_df.to_csv(index=False).encode("utf-8"),
+        "promptforge_history.csv",
+        "text/csv",
+        use_container_width=True
+    )
+
     if st.button("Clear evaluation history", type="secondary"):
         save_history([])
         st.rerun()
